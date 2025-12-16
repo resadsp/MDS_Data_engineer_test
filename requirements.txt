@@ -1,0 +1,12 @@
+# Core dependencies
+python-dateutil>=2.8.2
+numpy>=1.26.0
+
+# Testing
+pytest>=8.2.0
+pytest-cov
+coverage
+hypothesis
+
+# Optional typing support
+typing-extensions>=4.5.0

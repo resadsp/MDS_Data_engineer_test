@@ -1,0 +1,14 @@
+[run]
+source = src
+branch = True
+omit =
+    src/orchestration/*
+    src/main.py
+    src/entrypoint.sh
+    tests/*
+
+[report]
+show_missing = True
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.

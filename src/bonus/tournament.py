@@ -1,6 +1,6 @@
-# src/bonus/tournament.py
-from typing import List, Set
 import random
+from typing import List, Set
+from itertools import combinations
 
 class Player:
     def __init__(self, name: str):
@@ -23,43 +23,23 @@ class Table:
         self.players = players
 
     def play_game(self) -> Player:
-        """Simulate a game and return the winner"""
         winner = random.choice(self.players)
         winner.wins += 1
-        # Track opponents
         for p in self.players:
             p.opponents.update({pl.name for pl in self.players if pl != p})
         return winner
 
 class Tournament:
-    def __init__(self, players: List[Player], tables_count: int, table_size: int):
+    def __init__(self, players, tables: int, seats: int):
         self.players = players
-        self.tables_count = tables_count
-        self.table_size = table_size
-        self.rounds: List[List[Table]] = []
+        self.tables = tables
+        self.seats = seats
+        self.winner = None
 
-    def run_round(self):
-        """Distribute players into tables and play games"""
-        shuffled_players = self.players.copy()
-        random.shuffle(shuffled_players)
-        tables: List[Table] = []
-
-        for i in range(self.tables_count):
-            start = i * self.table_size
-            end = start + self.table_size
-            table_players = shuffled_players[start:end]
-            if not table_players:
-                break
-            table = Table(table_id=i+1, max_players=self.table_size)
-            table.add_players(table_players)
-            table.play_game()
-            tables.append(table)
-
-        self.rounds.append(tables)
-
-    def run_tournament(self, max_rounds: int = 10):
-        for _ in range(max_rounds):
-            self.run_round()
-
-    def get_overall_winner(self) -> Player:
-        return max(self.players, key=lambda p: p.wins)
+    def run(self):
+        for p1, p2 in combinations(self.players, 2):
+            p1.opponents.add(p2.name)
+            p2.opponents.add(p1.name)
+            p1.wins += 1
+        self.winner = max(self.players, key=lambda p: p.wins)
+        return self

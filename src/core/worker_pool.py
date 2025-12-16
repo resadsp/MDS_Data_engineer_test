@@ -4,20 +4,16 @@ from .task import Task
 
 class WorkerPool:
     """
-    Simple worker pool that executes Task instances concurrently.
+    Executes Task instances concurrently using ThreadPoolExecutor.
     """
 
     def __init__(self, max_workers: int = 10):
         self._executor = ThreadPoolExecutor(max_workers=max_workers)
 
     def submit(self, task: Task) -> Future:
-        """
-        Submit a Task to the pool for execution.
-        """
+        print(f"[WorkerPool] Submitting task: {task}")
         return self._executor.submit(task.execute)
 
     def shutdown(self, wait: bool = True):
-        """
-        Shutdown the pool.
-        """
+        print("[WorkerPool] Shutting down")
         self._executor.shutdown(wait=wait)
