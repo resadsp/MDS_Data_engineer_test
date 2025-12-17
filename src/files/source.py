@@ -1,23 +1,21 @@
-# src/files/source.py
 import random
-import string
-from typing import Callable, List
 from .file import File
-import numpy as np
-
-# src/files/source.py
 
 class FileSource:
     def __init__(self, count: int = 0, avg_size: int = 0):
         self.count = count
         self.avg_size = avg_size
+        self._callbacks = []
 
     def _generate_files(self):
-        import random
         for i in range(self.count):
-            size = int(random.expovariate(1/self.avg_size))
-            yield File(size_bytes=size)
+            size = max(1, int(random.expovariate(1/self.avg_size)))
+            yield File(size_bytes=size, name=f"file_{i}")
 
-    def start(self, callback):
+    def subscribe(self, callback):
+        self._callbacks.append(callback)
+
+    def start(self):
         for f in self._generate_files():
-            callback(f)
+            for cb in self._callbacks:
+                cb(f)

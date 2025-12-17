@@ -18,4 +18,4 @@ class BucketManager:
         buckets = self.strategy.bucketize(self.pending_files)
         self.pending_files = []
         for bucket in buckets:
-            self.worker_pool.submit(BucketTask(bucket))
+            self.worker_pool.submit(BucketTask(bucket, None))

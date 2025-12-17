@@ -1,8 +1,7 @@
-from typing import Optional
-from stream.minibatch import MiniBatch
-from core.worker_pool import WorkerPool
-from stream.minibatch_task import MiniBatchTask
 import threading
+from .minibatch import MiniBatch
+from core.worker_pool import WorkerPool
+from .minibatch_task import MiniBatchTask
 
 class MiniBatchBuilder:
     def __init__(self, worker_pool, window_seconds: int):
@@ -18,6 +17,5 @@ class MiniBatchBuilder:
     def _flush(self):
         with self._lock:
             if len(self.current_batch) > 0:
-                print(f"[MiniBatchBuilder] Flushing batch of {len(self.current_batch)} messages")
                 self.worker_pool.submit(MiniBatchTask(self.current_batch))
             self.current_batch = MiniBatch()

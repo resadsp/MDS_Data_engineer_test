@@ -1,0 +1,238 @@
+from bonus.tournament import Tournament, Player
+
+def test_tournament_single_player():
+    p = Player("Solo")
+    t = Tournament(players=[p], tables=1, seats=1)
+    t.run()
+    assert t.winner == p
+    assert len(p.opponents) == 0
+
+def test_tournament_opponents_count():
+    players = [Player(f"P{i}") for i in range(1, 5)]
+    t = Tournament(players=players, tables=2, seats=2)
+    t.run()
+    for p in players:
+        assert len(p.opponents) == 3  # each plays with everyone else
+from files.bucket_manager import BucketManager
+from files.bucketing_strategy import SimpleBucketingStrategy
+from core.worker_pool import WorkerPool
+from files.file import File
+
+def test_bucket_manager_no_files():
+    pool = WorkerPool(max_workers=1)
+    manager = BucketManager(pool, SimpleBucketingStrategy(target_size=10))
+    # no files added, flush should not fail
+    pool.shutdown()
+import pytest
+from files.file import File
+from files.bucketing_strategy import SimpleBucketingStrategy, FirstFitBucketingStrategy
+
+def test_simple_strategy_large_file():
+    files = [File(10), File(50)]
+    strat = SimpleBucketingStrategy(target_size=20)
+    buckets = strat.bucketize(files)
+    assert buckets[0] == [files[0]]
+    assert buckets[1] == [files[1]]  # large file alone
+
+def test_firstfit_order_preserved():
+    files = [File(5), File(3), File(7)]
+    strat = FirstFitBucketingStrategy(target_size=10)
+    buckets = strat.bucketize(files)
+    flattened = [f.size_bytes for b in buckets for f in b]
+    assert flattened == [5, 3, 7]
+from hypothesis import given, strategies as st
+from files.file import File
+from files.bucketing_strategy import SimpleBucketingStrategy
+
+@st.composite
+def files_lists(draw):
+    sizes = draw(st.lists(st.integers(min_value=0, max_value=1), max_size=10))
+    return [File(s) for s in sizes]
+
+@given(files_lists(), st.integers(min_value=1, max_value=100))
+def test_simple_bucket_properties(files, target):
+    strat = SimpleBucketingStrategy(target_size=target)
+    buckets = strat.bucketize(files)
+    all_files = [f for b in buckets for f in b]
+    assert sorted([f.size_bytes for f in all_files]) == sorted([f.size_bytes for f in files])
+
+
+@given(file_lists(), st.integers(min_value=2, max_value=20))
+def test_firstfit_bucket_properties(files, target):
+    strat = FirstFitBucketingStrategy(target_size=target)
+    buckets = strat.bucketize(files)
+
+    for b in buckets:
+        total = sum(f.size_bytes for f in b)
+        assert total <= target
+
+    all_files = [f for b in buckets for f in b]
+    assert sorted([f.size_bytes for f in all_files]) == sorted([f.size_bytes for f in files])
+import pytest
+from files.bucketing_strategy import SimpleBucketingStrategy, FirstFitBucketingStrategy
+from files.file import File
+
+@pytest.fixture
+def many_small_files():
+    # 5 files of 1 byte each
+    return [File(size_bytes=1) for _ in range(5)]
+
+@pytest.fixture
+def mixed_files():
+    # small and large
+    return [File(size_bytes=8), File(size_bytes=3), File(size_bytes=7), File(size_bytes=1)]
+
+def test_simple_bucketing_basic(many_small_files):
+    strat = SimpleBucketingStrategy(target_size=3)
+    buckets = strat.bucketize(many_small_files)
+    # Each bucket should have at most 3 bytes
+    assert all(sum(f.size_bytes for f in b) <= 3 for b in buckets)
+    # All files must be present
+    assert sum(len(b) for b in buckets) == 5
+
+def test_simple_bucketing_order(mixed_files):
+    strat = SimpleBucketingStrategy(target_size=10)
+    buckets = strat.bucketize(mixed_files)
+    flat = [f.size_bytes for b in buckets for f in b]
+    # Order should be preserved
+    assert flat == [8, 3, 7, 1]
+
+def test_firstfit_bucketing(many_small_files):
+    strat = FirstFitBucketingStrategy(target_size=2)
+    buckets = strat.bucketize(many_small_files)
+    # Because we use first fit, more packing happens
+    assert len(buckets) <= len(many_small_files)
+
+def test_firstfit_bucketing_mixed(mixed_files):
+    strat = FirstFitBucketingStrategy(target_size=8)
+    buckets = strat.bucketize(mixed_files)
+    # Should fit 7 and 1 in one buffer if possible
+    sizes = [sum(f.size_bytes for f in b) for b in buckets]
+    assert all(s <= 8 for s in sizes)
+import pytest
+import time
+from core.clock import Clock
+
+def test_clock_now(monkeypatch):
+    monkeypatch.setattr(time, "time", lambda: 123456)
+    c = Clock()
+    assert c.now() == 123456
+import pytest
+from files.source import FileSource
+from files.bucketing_strategy import SimpleBucketingStrategy
+from files.bucket_manager import BucketManager
+
+def test_file_source_generates(monkeypatch):
+    generated = []
+    monkeypatch.setattr(FileSource, "start", lambda self: [generated.append(f) for f in self._generate_files()])
+    src = FileSource(count=5, avg_size=100)
+    src.start()
+    assert len(generated) == 5
+
+def test_bucket_manager_submits(monkeypatch):
+    submitted = []
+    class FakePool:
+        def submit(self, task):
+            submitted.append(task)
+    manager = BucketManager(worker_pool=FakePool(), strategy=SimpleBucketingStrategy(target_size=10))
+    for _ in range(10):
+        manager.add_file(type("F", (), {"size_bytes": 1})())
+    assert submitted
+import pytest
+from stream.minibatch import MiniBatch
+from stream.message import Message
+from stream.minibatch_builder import MiniBatchBuilder
+from core.worker_pool import WorkerPool
+from stream.minibatch_task import MiniBatchTask
+import threading
+
+def test_minibatch_empty():
+    batch = MiniBatch()
+    assert len(batch) == 0
+
+def test_minibatch_add():
+    batch = MiniBatch()
+    batch.add(Message("x"))
+    assert len(batch) == 1
+    assert batch.messages[0].value == "x"
+
+def test_minibatch_builder_thread_safety():
+    pool = WorkerPool(max_workers=2)
+    builder = MiniBatchBuilder(pool, window_seconds=0)
+
+    def add_msgs():
+        for i in range(10):
+            builder.add_message(Message(f"msg{i}"))
+
+    threads = [threading.Thread(target=add_msgs) for _ in range(3)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    builder._flush()  # should submit without error
+    pool.shutdown()
+import time
+import pytest
+from stream.message import Message
+from stream.message_source import MessageSource
+from stream.minibatch import MiniBatch
+from stream.minibatch_builder import MiniBatchBuilder
+
+def test_message_simple():
+    msg = Message(value="hello")
+    assert msg.value == "hello"
+
+def test_minibatch_add_and_len():
+    batch = MiniBatch()
+    batch.add(Message("one"))
+    batch.add(Message("two"))
+    assert len(batch) == 2
+    assert [m.value for m in batch.messages] == ["one", "two"]
+
+def test_message_source_emits_many(monkeypatch):
+    # monkeypatch Poisson generator for deterministic emission
+    calls = []
+    def fake_emit(callback):
+        for i in range(5):
+            callback(Message(f"msg_{i}"))
+    monkeypatch.setattr(MessageSource, "start", lambda self: fake_emit(self._notify))
+    source = MessageSource(rate_per_minute=10)
+    collected = []
+    source.subscribe(collected.append)
+    source.start()
+    assert len(collected) == 5
+
+def test_batch_builder_batches(monkeypatch):
+    pool_submitted = []
+    class FakePool:
+        def submit(self, task):
+            pool_submitted.append(task)
+    builder = MiniBatchBuilder(worker_pool=FakePool(), window_seconds=0)
+    # add messages
+    for i in range(7):
+        builder.add_message(Message(f"v{i}"))
+    # force flush
+    builder._flush()
+    assert len(pool_submitted) == 1
+    assert isinstance(pool_submitted[0].messages, list)
+import pytest
+import time
+from core.worker_pool import WorkerPool
+from core.task import Task
+
+class DummyTask(Task):
+    def __init__(self):
+        self.executed = False
+
+    def execute(self):
+        self.executed = True
+
+def test_worker_pool_executes_tasks():
+    pool = WorkerPool(max_workers=2)
+    tasks = [DummyTask() for _ in range(5)]
+    for t in tasks:
+        pool.submit(t)
+    time.sleep(0.2)
+    assert all(t.executed for t in tasks)
+    pool.shutdown()

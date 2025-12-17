@@ -1,5 +1,5 @@
-#!/usr/bin/env sh
-set -e
+#!/bin/sh
+set -eu
 
 case "$1" in
   stream)

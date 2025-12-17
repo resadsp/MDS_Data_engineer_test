@@ -6,7 +6,4 @@ class MiniBatchTask(Task):
         self.messages = batch.messages
 
     def execute(self):
-        print(f"[MiniBatchTask] Processing batch of {len(self.batch)} messages")
-
-    def __repr__(self):
-        return f"MiniBatchTask({len(self.batch)} messages)"
+        pass

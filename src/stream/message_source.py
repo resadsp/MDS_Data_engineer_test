@@ -1,5 +1,5 @@
 import time
-from stream.message import Message
+from .message import Message
 
 class MessageSource:
     def __init__(self, rate_per_minute: int):
@@ -14,7 +14,6 @@ class MessageSource:
             cb(msg)
 
     def start(self):
-        # in tests they monkeypatch this start method, so just default here
         interval = 60 / self.rate_per_minute
         for i in range(5):
             self._notify(Message(f"msg_{i}"))

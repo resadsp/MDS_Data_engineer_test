@@ -1,12 +1,15 @@
-from core.task import Task
+class Bucket:
+    def __init__(self, files=None):
+        self.files = files or []
 
-class BucketTask(Task):
-    def __init__(self, files):
-        self.files = files
+    def add_file(self, f):
+        self.files.append(f)
 
-    def execute(self):
-        total = sum(f.size_bytes for f in self.files)
-        print(f"[BucketTask] Processing bucket of {len(self.files)} files, total size: {total}B")
+    @property
+    def total_size(self):
+        return sum(f.size_bytes for f in self.files)
 
-    def __repr__(self):
-        return f"BucketTask({len(self.files)} files)"
+class BucketTask:
+    def __init__(self, bucket, file=None):
+        self.bucket = bucket
+        self.file = file

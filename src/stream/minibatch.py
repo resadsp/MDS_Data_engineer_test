@@ -1,3 +1,5 @@
+from typing import List
+
 class MiniBatch:
     def __init__(self):
         self.messages: List = []
@@ -7,6 +9,3 @@ class MiniBatch:
 
     def __len__(self):
         return len(self.messages)
-
-    def __repr__(self):
-        return f"MiniBatch({len(self.messages)} messages)"

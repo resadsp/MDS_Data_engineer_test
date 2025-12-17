@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List
-from files.file import File
+from .file import File
 
 class BucketingStrategy(ABC):
     def __init__(self, target_size: int):
@@ -11,7 +11,7 @@ class BucketingStrategy(ABC):
         pass
 
 class SimpleBucketingStrategy(BucketingStrategy):
-    def bucketize(self, files: List[File]) -> List[List[File]]:
+    def bucketize(self, files: list) -> list:
         buckets = []
         current = []
         current_sum = 0
@@ -21,6 +21,10 @@ class SimpleBucketingStrategy(BucketingStrategy):
                 current = []
                 current_sum = 0
             if f.size_bytes > self.target_size:
+                if current:
+                    buckets.append(current)
+                    current = []
+                    current_sum = 0
                 buckets.append([f])
                 continue
             current.append(f)
@@ -28,6 +32,7 @@ class SimpleBucketingStrategy(BucketingStrategy):
         if current:
             buckets.append(current)
         return buckets
+
 
 class FirstFitBucketingStrategy(BucketingStrategy):
     def bucketize(self, files: List[File]) -> List[List[File]]:
@@ -43,5 +48,4 @@ class FirstFitBucketingStrategy(BucketingStrategy):
                 buckets.append([f])
         return buckets
 
-# Alias za demo
 MaxSizeStrategy = SimpleBucketingStrategy
